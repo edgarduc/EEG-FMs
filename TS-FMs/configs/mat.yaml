@@ -1,0 +1,34 @@
+study:
+  name: mat
+  data_dir: data
+  sfreq: 128.0
+  fmin: 1.0
+  fmax: 40.0
+  window_seconds: 4.0
+  stride_seconds: 4.0
+  test_subject_fraction: 0.2
+  val_subject_fraction: 0.2
+  seed: 13
+
+model:
+  moment_checkpoint: AutonLab/MOMENT-1-large
+  tspulse_checkpoint: ibm-granite/granite-timeseries-tspulse-r1
+  tspulse_revision: tspulse-block-dualhead-512-p16-r1
+  tspulse_module:
+  sequence_length: 512
+
+head:
+  hidden_dim: 256
+  num_heads: 4
+  dropout: 0.1
+  channel_id_dim: 32
+  position_dim: 32
+
+train:
+  batch_size: 16
+  epochs: 20
+  lr: 0.0003
+  weight_decay: 0.0001
+  patience: 5
+  device: auto
+  output_dir: runs

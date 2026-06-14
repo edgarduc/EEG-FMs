@@ -1,0 +1,2 @@
+[console_scripts]
+ts-fms = ts_fms.cli:main
