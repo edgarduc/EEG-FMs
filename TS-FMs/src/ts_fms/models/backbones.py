@@ -62,6 +62,7 @@ class TSPulseBackbone(FrozenBackbone):
             )
 
         self.model = self._load_model(checkpoint, module_factory, revision)
+        self.encoder = self.model.backbone if hasattr(self.model, "backbone") else self.model
         self.model.eval()
         for parameter in self.model.parameters():
             parameter.requires_grad = False
@@ -70,16 +71,17 @@ class TSPulseBackbone(FrozenBackbone):
     def encode_channels(self, x: torch.Tensor) -> torch.Tensor:
         past_values = x.transpose(1, 2).contiguous()
         try:
-            output = self.model(
+            output = self.encoder(
                 past_values=past_values,
                 output_hidden_states=True,
                 return_dict=True,
+                enable_masking=False,
             )
         except TypeError:
             try:
-                output = self.model(past_values)
+                output = self.encoder(past_values)
             except TypeError:
-                output = self.model(x)
+                output = self.encoder(x)
         embedding = _extract_embedding(output)
 
         if embedding.ndim == 4:
