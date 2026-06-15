@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -50,6 +51,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument("--device", default="auto", help="auto, cpu, cuda, cuda:0, or mps.")
+    parser.add_argument(
+        "--hf-token",
+        default=os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_HUB_TOKEN"),
+        help="Hugging Face token for gated model access. Defaults to HF_TOKEN/HUGGINGFACE_HUB_TOKEN.",
+    )
     parser.add_argument("--cbramod-source-dir", type=Path, default=None, help="Optional local CBraMod source checkout.")
     parser.add_argument("--cbramod-weights-path", type=Path, default=None, help="Optional local CBraMod weights path.")
     return parser
@@ -81,6 +87,7 @@ def main() -> None:
         args.model,
         device=device,
         pooling=args.embedding_pooling,
+        hf_token=args.hf_token,
         cbramod_source_dir=args.cbramod_source_dir,
         cbramod_weights_path=args.cbramod_weights_path,
     )
@@ -105,7 +112,7 @@ def main() -> None:
     )
 
     run = {
-        "config": vars(args) | {"device_resolved": str(device)},
+        "config": _safe_config(args, device),
         "dataset": {
             "name": "eegmat",
             "data_dir": str(data_dir),
@@ -146,6 +153,13 @@ def write_run_json(run: dict[str, object], output_dir: Path, model: str, seed: i
         json.dump(_jsonable(run), handle, indent=2, sort_keys=True)
         handle.write("\n")
     return destination
+
+
+def _safe_config(args: argparse.Namespace, device: torch.device) -> dict[str, object]:
+    config = vars(args).copy()
+    config["hf_token"] = "<provided>" if config.get("hf_token") else None
+    config["device_resolved"] = str(device)
+    return config
 
 
 def _jsonable(value):

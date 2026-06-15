@@ -19,6 +19,14 @@ python3 run_experiment.py --model reve --seed 0
 python3 run_experiment.py --model cbramod --seed 0
 ```
 
+REVE is hosted in gated Hugging Face repositories. Request access on Hugging Face first, then authenticate with one of:
+
+```bash
+huggingface-cli login
+export HF_TOKEN=hf_...
+python3 run_experiment.py --model reve --seed 0 --hf-token hf_...
+```
+
 Useful debug run:
 
 ```bash

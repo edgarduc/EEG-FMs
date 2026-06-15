@@ -46,6 +46,7 @@ class REVEFeatureExtractor(FrozenFeatureExtractor):
         model_id: str = REVE_MODEL_ID,
         position_model_id: str = REVE_POSITION_MODEL_ID,
         pooling: str = "flatten",
+        hf_token: str | None = None,
         device: torch.device,
     ):
         super().__init__()
@@ -56,8 +57,24 @@ class REVEFeatureExtractor(FrozenFeatureExtractor):
 
         self.info = ExtractorInfo(name="reve", target_sfreq=200.0)
         self.pooling = pooling
-        self.model = AutoModel.from_pretrained(model_id, trust_remote_code=True).to(device)
-        self.position_model = AutoModel.from_pretrained(position_model_id, trust_remote_code=True).to(device)
+        try:
+            self.model = AutoModel.from_pretrained(
+                model_id,
+                trust_remote_code=True,
+                token=hf_token,
+            ).to(device)
+            self.position_model = AutoModel.from_pretrained(
+                position_model_id,
+                trust_remote_code=True,
+                token=hf_token,
+            ).to(device)
+        except OSError as exc:
+            raise RuntimeError(
+                "Could not load REVE from Hugging Face. The REVE repositories are gated, "
+                "so you need to request access on Hugging Face and authenticate the run. "
+                "Use `huggingface-cli login`, set `HF_TOKEN`/`HUGGINGFACE_HUB_TOKEN`, "
+                "or pass `--hf-token <token>`."
+            ) from exc
         self.model.eval()
         self.position_model.eval()
         for param in self.parameters():
@@ -85,6 +102,7 @@ class CBraModFeatureExtractor(FrozenFeatureExtractor):
         channels: int = 22,
         segments: int = 4,
         points_per_patch: int = 200,
+        hf_token: str | None = None,
         device: torch.device,
     ):
         super().__init__()
@@ -98,7 +116,7 @@ class CBraModFeatureExtractor(FrozenFeatureExtractor):
         source_dir = source_dir or DATA_DIR / "model_sources" / "CBraMod"
         weights_path = weights_path or DATA_DIR / "model_weights" / "cbramod" / CBRAMOD_WEIGHTS
         _ensure_cbramod_source(source_dir)
-        _ensure_cbramod_weights(weights_path)
+        _ensure_cbramod_weights(weights_path, hf_token=hf_token)
 
         sys.path.insert(0, str(source_dir))
         try:
@@ -132,17 +150,19 @@ def build_feature_extractor(
     *,
     device: torch.device,
     pooling: str = "flatten",
+    hf_token: str | None = None,
     cbramod_source_dir: Path | None = None,
     cbramod_weights_path: Path | None = None,
 ) -> FrozenFeatureExtractor:
     normalized = model_name.lower()
     if normalized == "reve":
-        return REVEFeatureExtractor(pooling=pooling, device=device)
+        return REVEFeatureExtractor(pooling=pooling, hf_token=hf_token, device=device)
     if normalized == "cbramod":
         return CBraModFeatureExtractor(
             source_dir=cbramod_source_dir,
             weights_path=cbramod_weights_path,
             pooling=pooling,
+            hf_token=hf_token,
             device=device,
         )
     raise ValueError(f"Unsupported model {model_name!r}. Choose one of: reve, cbramod.")
@@ -212,7 +232,7 @@ def _ensure_cbramod_source(source_dir: Path) -> None:
         ) from exc
 
 
-def _ensure_cbramod_weights(weights_path: Path) -> None:
+def _ensure_cbramod_weights(weights_path: Path, hf_token: str | None = None) -> None:
     if weights_path.exists():
         return
     weights_path.parent.mkdir(parents=True, exist_ok=True)
@@ -225,5 +245,6 @@ def _ensure_cbramod_weights(weights_path: Path) -> None:
         filename=CBRAMOD_WEIGHTS,
         local_dir=weights_path.parent,
         local_dir_use_symlinks=False,
+        token=hf_token,
     )
     Path(downloaded).replace(weights_path)
