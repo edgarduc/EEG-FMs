@@ -1,0 +1,26 @@
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# Python bytecode
+__pycache__/
+*.pyc
+*.egg-info/
+
+# Operating system files
+.DS_Store
+
+# IDE files
+.idea/
+.vscode/
+
+# Data folder
+/data/
+/TS-FMs/data/
+
+# Outputs folder
+/outputs/
+/runs/
+/TS-FMs/runs/
