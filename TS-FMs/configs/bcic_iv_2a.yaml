@@ -16,6 +16,7 @@ model:
   sequence_length: 512
 
 head:
+  pooling: attention
   hidden_dim: 256
   num_heads: 4
   dropout: 0.1

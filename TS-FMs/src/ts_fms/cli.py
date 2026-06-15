@@ -45,6 +45,16 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Use only for pipeline smoke tests when a real checkpoint is unavailable.",
     )
+    parser.add_argument(
+        "--pooling",
+        choices=["attention", "concat_linear"],
+        help="Probe pooling mode. Default from config: attention.",
+    )
+    parser.add_argument(
+        "--no-attention-pooling",
+        action="store_true",
+        help="Use direct linear probing on concatenated channel embeddings.",
+    )
 
     parser.add_argument("--epochs", type=int, help="Training epochs per backbone.")
     parser.add_argument("--batch-size", type=int, help="Training batch size.")

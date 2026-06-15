@@ -15,7 +15,7 @@ from tqdm.auto import tqdm
 from ts_fms.config import ExperimentConfig
 from ts_fms.data.splits import SplitIndices
 from ts_fms.data.types import EEGStudy, EEGTensorDataset
-from ts_fms.models import EEGAttentionProbe, FrozenBackbone
+from ts_fms.models import ConcatenatedLinearProbe, EEGAttentionProbe, FrozenBackbone
 from ts_fms.training.metrics import classification_metrics
 
 
@@ -81,6 +81,7 @@ def train_and_evaluate(
     test_metrics = evaluate(backbone, probe, loaders["test"], device)
     result = {
         "backbone": backbone_name,
+        "pooling": config.head.pooling,
         "study": config.study.name,
         "class_names": study.class_names,
         "num_trials": int(len(study.y)),
@@ -105,7 +106,7 @@ def train_and_evaluate(
 
 def evaluate(
     backbone: FrozenBackbone,
-    probe: EEGAttentionProbe,
+    probe: nn.Module,
     loader: DataLoader,
     device: torch.device,
 ) -> dict[str, float]:
@@ -156,11 +157,19 @@ def _build_probe(
     study: EEGStudy,
     config: ExperimentConfig,
     device: torch.device,
-) -> EEGAttentionProbe:
+) -> nn.Module:
     sample = torch.from_numpy(study.x[:1]).float().to(device)
     with torch.no_grad():
         sample_embeddings = backbone.encode_channels(sample)
     embedding_dim = int(sample_embeddings.shape[-1])
+    if config.head.pooling == "concat_linear":
+        return ConcatenatedLinearProbe(
+            embedding_dim=embedding_dim,
+            num_channels=study.num_channels,
+            num_classes=study.num_classes,
+        )
+    if config.head.pooling != "attention":
+        raise ValueError("head.pooling must be either 'attention' or 'concat_linear'.")
     return EEGAttentionProbe(
         embedding_dim=embedding_dim,
         num_channels=study.num_channels,
@@ -187,7 +196,7 @@ def _loader(study: EEGStudy, indices: np.ndarray, config: ExperimentConfig, shuf
 def _save_result(result: dict[str, Any], config: ExperimentConfig) -> None:
     output_dir = config.train.output_dir / config.study.name
     output_dir.mkdir(parents=True, exist_ok=True)
-    path = output_dir / f"{result['backbone']}_seed{config.study.seed}.json"
+    path = output_dir / f"{result['backbone']}_{config.head.pooling}_seed{config.study.seed}.json"
     payload = {
         "config": _jsonable(asdict(config)),
         "result": _jsonable(result),

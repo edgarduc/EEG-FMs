@@ -66,3 +66,23 @@ class EEGAttentionProbe(nn.Module):
         repeat_count = self.num_channels - channels
         padding = channel_embeddings[:, -1:, :].expand(-1, repeat_count, -1)
         return torch.cat([channel_embeddings, padding], dim=1)
+
+
+class ConcatenatedLinearProbe(nn.Module):
+    def __init__(self, *, embedding_dim: int, num_channels: int, num_classes: int):
+        super().__init__()
+        self.num_channels = num_channels
+        self.classifier = nn.Linear(embedding_dim * num_channels, num_classes)
+
+    def forward(self, channel_embeddings: torch.Tensor) -> torch.Tensor:
+        if channel_embeddings.shape[1] != self.num_channels:
+            channel_embeddings = self._align_channels(channel_embeddings)
+        return self.classifier(channel_embeddings.flatten(start_dim=1))
+
+    def _align_channels(self, channel_embeddings: torch.Tensor) -> torch.Tensor:
+        channels = channel_embeddings.shape[1]
+        if channels > self.num_channels:
+            return channel_embeddings[:, : self.num_channels]
+        repeat_count = self.num_channels - channels
+        padding = channel_embeddings[:, -1:, :].expand(-1, repeat_count, -1)
+        return torch.cat([channel_embeddings, padding], dim=1)

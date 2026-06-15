@@ -46,6 +46,21 @@ ts-fms \
   --config configs/mat.yaml
 ```
 
+Run direct linear probing without attention pooling:
+
+```bash
+ts-fms \
+  --config configs/mat.yaml \
+  --no-attention-pooling
+```
+
+In this mode, per-channel backbone embeddings are concatenated into one trial
+vector before the classifier:
+
+```text
+[channels, embedding_dim] -> [channels * embedding_dim] -> Linear
+```
+
 By default, TSPulse uses:
 
 ```text
@@ -81,7 +96,7 @@ with fields such as `embeddings`, `embedding`, `last_hidden_state`, or `features
 Each run writes JSON results to:
 
 ```text
-runs/<study>/<backbone>_seed<seed>.json
+runs/<study>/<backbone>_<pooling>_seed<seed>.json
 ```
 
 The saved payload includes the config, subject split, validation history, and

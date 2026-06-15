@@ -39,6 +39,7 @@ class ModelConfig:
 
 @dataclass(frozen=True)
 class HeadConfig:
+    pooling: str = "attention"
     hidden_dim: int = 256
     num_heads: int = 4
     dropout: float = 0.1
@@ -99,6 +100,7 @@ def load_config(path: Path | None) -> ExperimentConfig:
 def merge_cli_overrides(config: ExperimentConfig, args: Any) -> ExperimentConfig:
     study_updates: dict[str, Any] = {}
     model_updates: dict[str, Any] = {}
+    head_updates: dict[str, Any] = {}
     train_updates: dict[str, Any] = {}
 
     for key in (
@@ -129,6 +131,11 @@ def merge_cli_overrides(config: ExperimentConfig, args: Any) -> ExperimentConfig
         if value is not None:
             model_updates[key] = value
 
+    if getattr(args, "no_attention_pooling", False):
+        head_updates["pooling"] = "concat_linear"
+    if getattr(args, "pooling", None) is not None:
+        head_updates["pooling"] = args.pooling
+
     for key in ("epochs", "batch_size", "lr", "device", "output_dir"):
         value = getattr(args, key, None)
         if value is not None:
@@ -137,6 +144,6 @@ def merge_cli_overrides(config: ExperimentConfig, args: Any) -> ExperimentConfig
     return ExperimentConfig(
         study=StudyConfig(**{**config.study.__dict__, **study_updates}),
         model=ModelConfig(**{**config.model.__dict__, **model_updates}),
-        head=config.head,
+        head=HeadConfig(**{**config.head.__dict__, **head_updates}),
         train=TrainConfig(**{**config.train.__dict__, **train_updates}),
     )
