@@ -75,6 +75,7 @@ class REVEFeatureExtractor(FrozenFeatureExtractor):
                 "Use `huggingface-cli login`, set `HF_TOKEN`/`HUGGINGFACE_HUB_TOKEN`, "
                 "or pass `--hf-token <token>`."
             ) from exc
+        self._position_cache: dict[tuple[str, ...], tuple[torch.Tensor, list[int], list[str], list[str]]] = {}
         self.model.eval()
         self.position_model.eval()
         for param in self.parameters():
@@ -84,12 +85,64 @@ class REVEFeatureExtractor(FrozenFeatureExtractor):
     def extract(self, eeg: torch.Tensor, channel_names: list[str]) -> torch.Tensor:
         device = next(self.model.parameters()).device
         eeg = eeg.to(device)
-        positions = self.position_model(channel_names)
-        if not torch.is_tensor(positions):
-            positions = torch.as_tensor(positions)
+        positions, kept_indices, kept_names, dropped_names = self._positions_for_channels(
+            channel_names,
+            device=device,
+            dtype=eeg.dtype,
+        )
+        if dropped_names:
+            eeg = eeg[:, kept_indices, :]
+        if positions.shape[0] % eeg.shape[1] != 0:
+            raise RuntimeError(
+                "REVE positional embeddings are incompatible with the current EEG window. "
+                f"Got {positions.shape[0]} positional tokens for {eeg.shape[1]} channels "
+                f"({kept_names}). Try the default --window-seconds 10.0."
+            )
         positions = positions.to(device=device, dtype=eeg.dtype).unsqueeze(0).expand(eeg.shape[0], -1, -1)
         output = self.model(eeg, positions)
         return _pool_output(output, self.pooling)
+
+    @torch.no_grad()
+    def _positions_for_channels(
+        self,
+        channel_names: list[str],
+        *,
+        device: torch.device,
+        dtype: torch.dtype,
+    ) -> tuple[torch.Tensor, list[int], list[str], list[str]]:
+        key = tuple(channel_names)
+        if key not in self._position_cache:
+            kept_indices: list[int] = []
+            kept_names: list[str] = []
+            dropped_names: list[str] = []
+            for idx, channel_name in enumerate(channel_names):
+                try:
+                    channel_positions = _as_tensor(self.position_model([channel_name]))
+                except Exception:
+                    channel_positions = torch.empty(0)
+                if channel_positions.numel() > 0 and channel_positions.shape[0] > 0:
+                    kept_indices.append(idx)
+                    kept_names.append(channel_name)
+                else:
+                    dropped_names.append(channel_name)
+
+            if not kept_names:
+                raise RuntimeError(
+                    "REVE position bank did not recognize any EEG channels. "
+                    f"Original channel names: {channel_names}"
+                )
+
+            positions = _as_tensor(self.position_model(kept_names)).detach().cpu()
+            self._position_cache[key] = (positions, kept_indices, kept_names, dropped_names)
+            if dropped_names:
+                print(
+                    "Dropping channels not recognized by REVE position bank: "
+                    + ", ".join(dropped_names),
+                    flush=True,
+                )
+
+        positions, kept_indices, kept_names, dropped_names = self._position_cache[key]
+        return positions.to(device=device, dtype=dtype), kept_indices, kept_names, dropped_names
 
 
 class CBraModFeatureExtractor(FrozenFeatureExtractor):
@@ -177,6 +230,12 @@ def _pool_output(output: Any, pooling: str) -> torch.Tensor:
     if pooling == "flatten":
         return tensor.reshape(tensor.shape[0], -1)
     raise ValueError(f"Unsupported embedding pooling mode: {pooling}")
+
+
+def _as_tensor(value: Any) -> torch.Tensor:
+    if torch.is_tensor(value):
+        return value
+    return torch.as_tensor(value)
 
 
 def _output_to_tensor(output: Any) -> torch.Tensor:
