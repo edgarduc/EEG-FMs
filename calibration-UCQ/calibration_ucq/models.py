@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pickle
 import subprocess
 import sys
 import urllib.request
@@ -383,7 +384,7 @@ class LaBraMFeatureExtractor(FrozenFeatureExtractor):
             qkv_bias=False,
             init_values=0.1,
         )
-        state = _checkpoint_state_dict(torch.load(weights_path, map_location="cpu"))
+        state = _checkpoint_state_dict(_load_checkpoint(weights_path, map_location="cpu"))
         loaded = _load_matching_state_dict(self.model, state)
         if loaded == 0:
             raise RuntimeError(f"No LaBraM checkpoint weights from {weights_path} matched the model architecture.")
@@ -544,6 +545,19 @@ def _patch_chunks_or_pad(eeg: torch.Tensor, *, patch_size: int, max_points: int)
 
 def _normalize_labram_channel_name(channel_name: str) -> str:
     return channel_name.replace(".", "").strip().upper()
+
+
+def _load_checkpoint(path: Path, *, map_location: str | torch.device) -> Any:
+    try:
+        return torch.load(path, map_location=map_location, weights_only=True)
+    except TypeError:
+        return torch.load(path, map_location=map_location)
+    except pickle.UnpicklingError as exc:
+        if "Weights only load failed" not in str(exc):
+            raise
+        # LaBraM's official checkpoint contains NumPy scalar metadata, which PyTorch
+        # 2.6 rejects under weights_only=True before we can extract the model state.
+        return torch.load(path, map_location=map_location, weights_only=False)
 
 
 def _checkpoint_state_dict(checkpoint: Any) -> dict[str, torch.Tensor]:
