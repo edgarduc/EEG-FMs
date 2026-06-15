@@ -17,6 +17,7 @@ Each invocation runs one model only. EEGMAT is downloaded to `data/eegmat/1.0.0`
 ```bash
 python3 run_experiment.py --model reve --seed 0
 python3 run_experiment.py --model cbramod --seed 0
+python3 run_experiment.py --model labram --seed 0
 ```
 
 REVE is hosted in gated Hugging Face repositories. Request access on Hugging Face first, then authenticate with one of:
@@ -25,6 +26,14 @@ REVE is hosted in gated Hugging Face repositories. Request access on Hugging Fac
 huggingface-cli login
 export HF_TOKEN=hf_...
 python3 run_experiment.py --model reve --seed 0 --hf-token hf_...
+```
+
+LaBraM source and `labram-base.pth` are downloaded from the official GitHub repository by default. For offline or pre-downloaded runs:
+
+```bash
+python3 run_experiment.py --model labram --seed 0 \
+  --labram-source-dir /path/to/LaBraM \
+  --labram-weights-path /path/to/labram-base.pth
 ```
 
 Useful debug run:

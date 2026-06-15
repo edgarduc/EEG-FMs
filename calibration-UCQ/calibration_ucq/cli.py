@@ -18,7 +18,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Run calibration and uncertainty experiments on EEGMAT with one frozen EEG foundation model."
     )
-    parser.add_argument("--model", required=True, choices=("reve", "cbramod"), help="Model to run for this invocation.")
+    parser.add_argument(
+        "--model",
+        required=True,
+        choices=("reve", "cbramod", "labram"),
+        help="Model to run for this invocation.",
+    )
     parser.add_argument("--dataset", default="mat", choices=("mat",), help="Dataset to use. Currently only EEGMAT.")
     parser.add_argument("--data-dir", type=Path, default=DATA_DIR, help="Project data directory.")
     parser.add_argument("--output-dir", type=Path, default=OUTPUTS_DIR, help="Directory for one-run JSON outputs.")
@@ -58,6 +63,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--cbramod-source-dir", type=Path, default=None, help="Optional local CBraMod source checkout.")
     parser.add_argument("--cbramod-weights-path", type=Path, default=None, help="Optional local CBraMod weights path.")
+    parser.add_argument("--labram-source-dir", type=Path, default=None, help="Optional local LaBraM source checkout.")
+    parser.add_argument("--labram-weights-path", type=Path, default=None, help="Optional local LaBraM weights path.")
     return parser
 
 
@@ -90,6 +97,8 @@ def main() -> None:
         hf_token=args.hf_token,
         cbramod_source_dir=args.cbramod_source_dir,
         cbramod_weights_path=args.cbramod_weights_path,
+        labram_source_dir=args.labram_source_dir,
+        labram_weights_path=args.labram_weights_path,
     )
 
     metrics = run_probe_experiment(

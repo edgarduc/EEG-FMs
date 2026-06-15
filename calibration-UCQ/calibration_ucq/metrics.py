@@ -58,12 +58,46 @@ def classification_metrics(
 
     metrics = {
         "accuracy": float(correct.float().mean().item()),
+        "balanced_accuracy": balanced_accuracy(predictions, labels, num_classes=probs.shape[1]),
+        "weighted_f1": weighted_f1_score(predictions, labels, num_classes=probs.shape[1]),
         "nll": float(F.cross_entropy(logits, labels).item()),
         "brier": float(((probs - one_hot) ** 2).sum(dim=1).mean().item()),
         "ece": expected_calibration_error(probs, labels, bins=ece_bins),
     }
     metrics.update(selective_risk_metrics(confidences, correct, fixed_risks=fixed_risks))
     return metrics
+
+
+def balanced_accuracy(predictions: torch.Tensor, labels: torch.Tensor, *, num_classes: int) -> float:
+    recalls = []
+    for class_idx in range(num_classes):
+        class_mask = labels == class_idx
+        if class_mask.any():
+            recalls.append(predictions[class_mask].eq(labels[class_mask]).float().mean())
+    if not recalls:
+        return float("nan")
+    return float(torch.stack(recalls).mean().item())
+
+
+def weighted_f1_score(predictions: torch.Tensor, labels: torch.Tensor, *, num_classes: int) -> float:
+    weighted_sum = torch.zeros((), dtype=torch.float32, device=labels.device)
+    total_support = torch.zeros((), dtype=torch.float32, device=labels.device)
+    for class_idx in range(num_classes):
+        true_positive = ((predictions == class_idx) & (labels == class_idx)).sum().float()
+        false_positive = ((predictions == class_idx) & (labels != class_idx)).sum().float()
+        false_negative = ((predictions != class_idx) & (labels == class_idx)).sum().float()
+        support = (labels == class_idx).sum().float()
+        if support == 0:
+            continue
+        denominator = 2.0 * true_positive + false_positive + false_negative
+        f1 = torch.zeros((), dtype=torch.float32, device=labels.device)
+        if denominator > 0:
+            f1 = 2.0 * true_positive / denominator
+        weighted_sum = weighted_sum + support * f1
+        total_support = total_support + support
+    if total_support == 0:
+        return float("nan")
+    return float((weighted_sum / total_support).item())
 
 
 def expected_calibration_error(probs: torch.Tensor, labels: torch.Tensor, bins: int = 15) -> float:

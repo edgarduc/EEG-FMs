@@ -13,5 +13,9 @@ CBRAMOD_REPO_URL = "https://github.com/wjq-learning/CBraMod.git"
 CBRAMOD_HF_REPO = "weighting666/CBraMod"
 CBRAMOD_WEIGHTS = "pretrained_weights.pth"
 
+LABRAM_REPO_URL = "https://github.com/935963004/LaBraM.git"
+LABRAM_WEIGHTS_URL = "https://github.com/935963004/LaBraM/raw/main/checkpoints/labram-base.pth"
+LABRAM_WEIGHTS = "labram-base.pth"
+
 REVE_MODEL_ID = "brain-bzh/reve-base"
 REVE_POSITION_MODEL_ID = "brain-bzh/reve-positions"
