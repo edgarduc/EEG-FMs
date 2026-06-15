@@ -113,6 +113,8 @@ Because MOMENT is treated as channel-independent here, each EEG channel is encod
 separately and then passed to the EEG attention pooling head.
 
 TSPulse is loaded from IBM Granite's Hugging Face checkpoint with
-`TSPulseForClassification.from_pretrained(...)`, using hidden states as frozen
-multivariate channel embeddings. The adapter also supports local
+`TSPulseForClassification.from_pretrained(...)`. In this experiment it is used
+like MOMENT: each EEG channel is encoded independently as a univariate time
+series, then channel interactions are learned only by the downstream attention
+pooling head or concatenated linear probe. The adapter also supports local
 Torch/TorchScript checkpoints or a user-provided loader factory.

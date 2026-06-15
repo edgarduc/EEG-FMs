@@ -50,7 +50,11 @@ class MomentBackbone(FrozenBackbone):
 
 
 class TSPulseBackbone(FrozenBackbone):
-    """Adapter for IBM Granite TSPulse or a user supplied TSPulse module."""
+    """Adapter for IBM Granite TSPulse or a user supplied TSPulse module.
+
+    EEG channels are encoded independently as univariate time series. Cross-channel
+    information is handled by the downstream EEG probe, matching the MOMENT setup.
+    """
 
     def __init__(self, checkpoint: str | None, module_factory: str | None, revision: str | None):
         super().__init__()
@@ -69,7 +73,9 @@ class TSPulseBackbone(FrozenBackbone):
 
     @torch.no_grad()
     def encode_channels(self, x: torch.Tensor) -> torch.Tensor:
-        past_values = x.transpose(1, 2).contiguous()
+        batch, channels, time = x.shape
+        flattened = x.reshape(batch * channels, 1, time)
+        past_values = flattened.transpose(1, 2).contiguous()
         try:
             output = self.encoder(
                 past_values=past_values,
@@ -81,20 +87,10 @@ class TSPulseBackbone(FrozenBackbone):
             try:
                 output = self.encoder(past_values)
             except TypeError:
-                output = self.encoder(x)
+                output = self.encoder(flattened)
         embedding = _extract_embedding(output)
-
-        if embedding.ndim == 4:
-            embedding = embedding.mean(dim=2)
-        elif embedding.ndim == 3:
-            if embedding.shape[1] != x.shape[1]:
-                embedding = embedding.mean(dim=1, keepdim=True).expand(-1, x.shape[1], -1)
-        elif embedding.ndim == 2:
-            embedding = embedding.unsqueeze(1).expand(-1, x.shape[1], -1)
-        else:
-            raise ValueError(f"Unsupported TSPulse embedding shape: {tuple(embedding.shape)}")
-
-        return embedding
+        embedding = _pool_to_vector(embedding)
+        return embedding.reshape(batch, channels, -1)
 
     @staticmethod
     def _load_model(checkpoint: str, module_factory: str | None, revision: str | None) -> nn.Module:
