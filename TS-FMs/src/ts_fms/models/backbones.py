@@ -67,6 +67,7 @@ class TSPulseBackbone(FrozenBackbone):
 
         self.model = self._load_model(checkpoint, module_factory, revision)
         self.encoder = self.model.backbone if hasattr(self.model, "backbone") else self.model
+        self.get_embeddings = self._load_embedding_helper()
         self.model.eval()
         for parameter in self.model.parameters():
             parameter.requires_grad = False
@@ -76,6 +77,16 @@ class TSPulseBackbone(FrozenBackbone):
         batch, channels, time = x.shape
         flattened = x.reshape(batch * channels, 1, time)
         past_values = flattened.transpose(1, 2).contiguous()
+        if self.get_embeddings is not None:
+            embedding = self.get_embeddings(
+                self.model,
+                past_values=past_values,
+                component="decoder",
+                mode="full",
+            )
+            embedding = _pool_to_vector(embedding)
+            return embedding.reshape(batch, channels, -1)
+
         try:
             output = self.encoder(
                 past_values=past_values,
@@ -91,6 +102,14 @@ class TSPulseBackbone(FrozenBackbone):
         embedding = _extract_embedding(output)
         embedding = _pool_to_vector(embedding)
         return embedding.reshape(batch, channels, -1)
+
+    @staticmethod
+    def _load_embedding_helper():
+        try:
+            from tsfm_public.models.tspulse.utils.helpers import get_embeddings
+        except ImportError:
+            return None
+        return get_embeddings
 
     @staticmethod
     def _load_model(checkpoint: str, module_factory: str | None, revision: str | None) -> nn.Module:

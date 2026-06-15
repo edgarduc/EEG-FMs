@@ -115,6 +115,8 @@ separately and then passed to the EEG attention pooling head.
 TSPulse is loaded from IBM Granite's Hugging Face checkpoint with
 `TSPulseForClassification.from_pretrained(...)`. In this experiment it is used
 like MOMENT: each EEG channel is encoded independently as a univariate time
-series, then channel interactions are learned only by the downstream attention
-pooling head or concatenated linear probe. The adapter also supports local
-Torch/TorchScript checkpoints or a user-provided loader factory.
+series. Embeddings are extracted with Granite TSFM's
+`get_embeddings(..., component="decoder", mode="full")`, then channel
+interactions are learned only by the downstream attention pooling head or
+concatenated linear probe. The adapter also supports local Torch/TorchScript
+checkpoints or a user-provided loader factory.
