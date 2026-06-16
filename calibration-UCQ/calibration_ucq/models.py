@@ -577,9 +577,13 @@ def _strip_state_dict_prefixes(state: dict[str, torch.Tensor]) -> dict[str, torc
     stripped = {}
     for key, value in state.items():
         normalized = key
-        for prefix in ("module.", "model."):
-            if normalized.startswith(prefix):
-                normalized = normalized[len(prefix) :]
+        changed = True
+        while changed:
+            changed = False
+            for prefix in ("module.", "model.", "student."):
+                if normalized.startswith(prefix):
+                    normalized = normalized[len(prefix) :]
+                    changed = True
         stripped[normalized] = value
     return stripped
 
